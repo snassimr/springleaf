@@ -1,4 +1,4 @@
-######################################## Springleaf_control.R
+######################################## Springleaf_control.R ######################################
 
 SYSG_INPUT_DIR             <- "/home/rstudio/Dropbox/springleaf/input/"
 SYSG_ME_DATA_FILENAME      <- "train.csv"
