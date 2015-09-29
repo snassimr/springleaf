@@ -1,3 +1,56 @@
+perform_data_preparation <- function (me_input_data)
+{
+  
+  me_input_data1       <- me_input_data[,-c(SYS_IDENTIFIER_FEATURES,target_index)]
+  
+  #CREATE DATA EXPLORATION REPORT
+  source("/home/rstudio/springleafpj/Springleaf_functions.R")
+  me_data_exploration_report <- create_data_exploration_report(me_input_data1,iteration = 1,output_mode = 'CSV' )
+  uv_data_report1            <- data.frame(me_data_exploration_report$uv_data_report)
+  
+  #PREPARE DATA
+  SYS_MIN_REQ_DISTINCT_VALUES <- 1
+  SYS_MAX_REQ_DISTINCT_VALUES <- 50
+  SYS_REQ_MIN_NUM_NAS         <- 0
+  SYS_REQ_MAX_NUM_NAS         <- 100
+  
+  # CREATE 
+  me_ts_var_features   <- as.character(subset(uv_data_report1 , FEATURE_TYPE == "timestamp" , select = FEATURE_NAME)$FEATURE_NAME)
+  
+  me_features_replace  <- c(me_ts_var_features)
+  me_ts_features_data  <- create_features_ts(me_input_data1[,names(me_input_data1) %in% me_ts_var_features],me_ts_var_features)
+  me_input_data2       <- data.frame(me_input_data1[,!(names(me_input_data1) %in% me_features_replace)],me_ts_features_data)
+  
+  me_data_exploration_report <- create_data_exploration_report(me_input_data2,iteration = 2,output_mode = 'CSV' )
+  uv_data_report2            <- data.frame(me_data_exploration_report$uv_data_report)
+  
+  # TRANSFORM
+  
+  me_fill_NAs_features       <- as.character(subset(uv_data_report2 , NO_NAs > SYS_REQ_MIN_NUM_NAS & NO_NAs <= SYS_REQ_MAX_NUM_NAS , select = FEATURE_NAME)$FEATURE_NAME)
+  me_fill_NAs_features_data  <- process_input_missing_data(me_input_data2[,names(me_input_data2) %in% me_fill_NAs_features])
+  me_input_data3             <- data.frame(me_input_data2[,!(names(me_input_data2) %in% me_fill_NAs_features)],me_fill_NAs_features_data)
+  
+  me_data_exploration_report <- create_data_exploration_report(me_input_data3,iteration = 3,output_mode = 'CSV' )
+  uv_data_report3            <- data.frame(me_data_exploration_report$uv_data_report)
+  
+  # REMOVE
+  me_low_var_features  <- as.character(subset(uv_data_report3 , NO_DISTINCT <= SYS_MIN_REQ_DISTINCT_VALUES , select = FEATURE_NAME)$FEATURE_NAME)
+  me_high_var_features <- as.character(subset(uv_data_report3 , NO_DISTINCT > SYS_MAX_REQ_DISTINCT_VALUES & FEATURE_TYPE == "categorical", select = FEATURE_NAME)$FEATURE_NAME)
+  me_high_NAs_features <- as.character(subset(uv_data_report3 , NO_NAs > SYS_REQ_MAX_NUM_NAS , select = FEATURE_NAME)$FEATURE_NAME)
+  
+  me_features_remove <- c(me_low_var_features,me_high_var_features,me_high_NAs_features)
+  me_input_data4     <- me_input_data3[,!(names(me_input_data3) %in% me_features_remove)]
+  me_input_data4     <- data.frame(me_input_data4,target=me_input_target_data)
+  
+  setwd(SYSG_OUTPUT_MODELING_DIR)
+  save(me_ts_var_features,file = paste0("dp_me_ts_var_features",".rda"))
+  save(me_features_remove,file = paste0("dp_me_features_remove",".rda"))
+  
+  return(me_input_data4)
+  
+  
+}
+
 create_data_exploration_report <- function (input_data,iteration,output_mode)
 {
   uv_data_report          <- NULL
@@ -36,11 +89,11 @@ create_data_exploration_report <- function (input_data,iteration,output_mode)
   return (list(uv_data_report=uv_data_report))
 }
 
-create_model_assessment_data <- function (me_input_data)
+create_model_assessment_data <- function (me_input_data,model_id)
 {
   
   set.seed(998)
-  m_indexes <- createDataPartition(me_input_data$target , p = .75, list = FALSE)
+  m_indexes <- createDataPartition(me_input_data$target , p = .9, list = FALSE)
   m_input_data <- me_input_data[ m_indexes,]
   e_input_data <- me_input_data[-m_indexes,]
   
@@ -94,26 +147,39 @@ create_model_assessment_data <- function (me_input_data)
                              # returnResamp = "final" ,
                              classProbs = T,
                              summaryFunction = twoClassSummary,
-                             sampling = "down",
+                             sampling = SYS_ME_BALANCING,
                              allowParallel = TRUE , verboseIter = TRUE)
   
   
   
-  ############################################################# RF ############################################
+  ############################################################# MODEL CREATION #####################################
   
+  classification_model <- NULL
   start_time <- proc.time()
-  print(paste0(Sys.time()  , " RF Model Assesment started"))
-  write(paste0(Sys.time()  , " RF Model Assesment started") , "log.txt" , append = TRUE)
+  print(paste0(Sys.time()  , " ", model_id ," Model Assesment started"))
+  write(paste0(Sys.time()  , " ", model_id ," Model Assesment started") , "log.txt" , append = TRUE)
   
+  if(model_id == 'RF') {
   rf_tuneGrid = expand.grid(mtry = seq(100,300, length.out = 4))
   rf <- train(classification_formula , data = m_input_data , method = "rf", metric="ROC" ,
               trControl = ma_control, tuneGrid = rf_tuneGrid , ntree = 501 , nodesize = 2 )
+  classification_model <- rf
+  }
+  
+  if(model_id == 'GBM') {
+    gbm_tuneGrid = expand.grid(interaction.depth = seq(2,4, length.out = 3),
+                               n.trees = seq(200,400, length.out = 3),
+                               shrinkage = 0.1 , n.minobsinnode = 2)
+    gbm <- train(classification_formula , data = m_input_data , method = "gbm", metric="ROC" ,
+                trControl = ma_control, tuneGrid = gbm_tuneGrid)
+    classification_model <- gbm
+  }
   
   end_time <- proc.time()
   runtime <- round(as.numeric((end_time - start_time)[3]),2)
   
-  print(paste0(Sys.time()  , " RF Model Assesment finished : " , runtime))
-  write(paste0(Sys.time()  , " RF Model Assesment finished") , "log.txt" , append = TRUE)
+  print(paste0(Sys.time()  , " ", SYS_MODEL_ID , " Model Assesment finished : " , runtime))
+  write(paste0(Sys.time()  , " ", SYS_MODEL_ID , " Model Assesment finished : " , runtime) , "log.txt" , append = TRUE)
   
   
   #Plotting results
@@ -121,9 +187,9 @@ create_model_assessment_data <- function (me_input_data)
 #   trellis.par.set(caretTheme())
 #   print(plot(rf))
   
-  create_pe_prediction_data(rf, m_input_data , e_input_data)
+  create_pe_prediction_data(classification_model, m_input_data , e_input_data)
   
-  return(rf)
+  return(classification_model)
 }
 
 # classification_model <- glmnet
@@ -150,7 +216,8 @@ create_pe_prediction_data <- function (classification_model, m_input_data , e_in
   prediction.obj <- prediction(prediction_class_score,  e_input_data$target , label.ordering = c("t0","t1"))
   auc <- performance(prediction.obj, measure = 'auc')@y.values
   
-  print(auc)
+  print(paste0(Sys.time()  , " ", SYS_MODEL_ID , " Evaluation AUC : " , auc))
+  write(paste0(Sys.time()  , " ", SYS_MODEL_ID , " Evaluation AUC : " , auc) , "log.txt" , append = TRUE)
   
 }
 
