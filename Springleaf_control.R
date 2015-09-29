@@ -29,7 +29,7 @@ registerDoMC(cores=3)
 library(caret)
 
 set.seed(1234)
-m_sample_indexes <- createDataPartition(me_input_data4$target , p = .5, list = FALSE)
+m_sample_indexes <- createDataPartition(me_input_data4$target , p = 1.0, list = FALSE)
 
 me_input_data5 <- me_input_data4[m_sample_indexes,]
 
@@ -57,12 +57,15 @@ if (exists("p_classification_model"))
   rm(p_classification_model)
 if (exists("me_ts_var_features"))              
   rm(me_ts_var_features)
+if (exists("me_features_replace"))              
+  rm(me_features_replace)
 if (exists("me_features_remove"))              
   rm(me_features_remove)
 
 setwd(SYSG_OUTPUT_MODELING_DIR)
 p_classification_model <- get(load(paste0(SYS_MODEL_ID,".rda")))
 me_ts_var_features     <- get(load("dp_me_ts_var_features.rda"))
+me_features_replace    <- get(load("dp_me_features_replace.rda"))
 me_features_remove     <- get(load("dp_me_features_remove.rda"))
 
 # CREATE FEATURES 

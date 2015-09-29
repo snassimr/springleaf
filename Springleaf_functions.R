@@ -44,6 +44,7 @@ perform_data_preparation <- function (me_input_data)
   
   setwd(SYSG_OUTPUT_MODELING_DIR)
   save(me_ts_var_features,file = paste0("dp_me_ts_var_features",".rda"))
+  save(me_features_replace,file = paste0("dp_me_features_replace",".rda"))
   save(me_features_remove,file = paste0("dp_me_features_remove",".rda"))
   
   return(me_input_data4)
@@ -93,7 +94,7 @@ create_model_assessment_data <- function (me_input_data,model_id)
 {
   
   set.seed(998)
-  m_indexes <- createDataPartition(me_input_data$target , p = .9, list = FALSE)
+  m_indexes <- createDataPartition(me_input_data$target , p = .75, list = FALSE)
   m_input_data <- me_input_data[ m_indexes,]
   e_input_data <- me_input_data[-m_indexes,]
   
@@ -107,21 +108,21 @@ create_model_assessment_data <- function (me_input_data,model_id)
   # "DOWN" , "SMOTE"
   SYS_ME_BALANCING <- 'down'
   set.seed(9560)
-#   # Class balancing
-#     # SMOTE
-#     if (SYS_ME_BALANCING == 'smote') {
-#     library(DMwR)
-#     m_input_data   <- SMOTE(target ~ ., data  = m_input_data)
-#     m_distribution <- table(m_input_data$target)
-#     save(m_distribution, file = "m_distribution.rda")
-#     }
-#     # DOWN SAMPLING
-#     if (SYS_ME_BALANCING == 'down') {
-#       m_input_data <- downSample(x = m_input_data[, -ncol(m_input_data)],
-#                                y = m_input_data$target)
-#       m_distribution <- table(m_input_data$target)
-#       save(m_distribution, file = "m_distribution.rda")
-#     }
+  # Class balancing
+    # SMOTE
+    if (SYS_ME_BALANCING == 'smote') {
+    library(DMwR)
+    m_input_data   <- SMOTE(target ~ ., data  = m_input_data)
+    m_distribution <- table(m_input_data$target)
+    save(m_distribution, file = "m_distribution.rda")
+    }
+    # DOWN SAMPLING
+    if (SYS_ME_BALANCING == 'down') {
+      m_input_data <- downSample(x = m_input_data[, names(m_input_data) !='target'],
+                                 y = m_input_data$target , yname = "target")
+      m_distribution <- table(m_input_data$target)
+      save(m_distribution, file = "m_distribution.rda")
+    }
 
   
   classification_formula <- as.formula(paste("target" ,"~",
@@ -147,7 +148,7 @@ create_model_assessment_data <- function (me_input_data,model_id)
                              # returnResamp = "final" ,
                              classProbs = T,
                              summaryFunction = twoClassSummary,
-                             sampling = SYS_ME_BALANCING,
+                             # sampling = SYS_ME_BALANCING,
                              allowParallel = TRUE , verboseIter = TRUE)
   
   
