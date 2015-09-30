@@ -107,22 +107,22 @@ create_model_assessment_data <- function (me_input_data,model_id)
 ###############################################################################################################
   # "DOWN" , "SMOTE"
   SYS_ME_BALANCING <- 'down'
-  set.seed(9560)
-  # Class balancing
-    # SMOTE
-    if (SYS_ME_BALANCING == 'smote') {
-    library(DMwR)
-    m_input_data   <- SMOTE(target ~ ., data  = m_input_data)
-    m_distribution <- table(m_input_data$target)
-    save(m_distribution, file = "m_distribution.rda")
-    }
-    # DOWN SAMPLING
-    if (SYS_ME_BALANCING == 'down') {
-      m_input_data <- downSample(x = m_input_data[, names(m_input_data) !='target'],
-                                 y = m_input_data$target , yname = "target")
-      m_distribution <- table(m_input_data$target)
-      save(m_distribution, file = "m_distribution.rda")
-    }
+#   set.seed(9560)
+#   # Class balancing
+#     # SMOTE
+#     if (SYS_ME_BALANCING == 'smote') {
+#     library(DMwR)
+#     m_input_data   <- SMOTE(target ~ ., data  = m_input_data)
+#     m_distribution <- table(m_input_data$target)
+#     save(m_distribution, file = "m_distribution.rda")
+#     }
+#     # DOWN SAMPLING
+#     if (SYS_ME_BALANCING == 'down') {
+#       m_input_data <- downSample(x = m_input_data[, names(m_input_data) !='target'],
+#                                  y = m_input_data$target , yname = "target")
+#       m_distribution <- table(m_input_data$target)
+#       save(m_distribution, file = "m_distribution.rda")
+#     }
 
   
   classification_formula <- as.formula(paste("target" ,"~",
@@ -137,7 +137,8 @@ create_model_assessment_data <- function (me_input_data,model_id)
   #Seeds for the trainControl()
   set.seed(1056)
   tr_seeds <- vector(mode = "list", length = CVfolds+1)
-  for(i in 1:5) tr_seeds[[i]] <- sample.int(1000, 5)
+  # for(i in 1:5) tr_seeds[[i]] <- sample.int(1000, 5) # for RF
+  for(i in 1:5) tr_seeds[[i]] <- sample.int(1000, 9)   # for GBM
   tr_seeds[[6]] <- sample.int(1000, 1)
   
   ma_control <- trainControl(method = "cv",
@@ -148,7 +149,7 @@ create_model_assessment_data <- function (me_input_data,model_id)
                              # returnResamp = "final" ,
                              classProbs = T,
                              summaryFunction = twoClassSummary,
-                             # sampling = SYS_ME_BALANCING,
+                             sampling = SYS_ME_BALANCING,
                              allowParallel = TRUE , verboseIter = TRUE)
   
   
@@ -170,7 +171,7 @@ create_model_assessment_data <- function (me_input_data,model_id)
   if(model_id == 'GBM') {
     gbm_tuneGrid = expand.grid(interaction.depth = seq(2,4, length.out = 3),
                                n.trees = seq(200,400, length.out = 3),
-                               shrinkage = 0.1 , n.minobsinnode = 2)
+                               shrinkage = seq(0.05,0.15, length.out = 3) , n.minobsinnode = 2)
     gbm <- train(classification_formula , data = m_input_data , method = "gbm", metric="ROC" ,
                 trControl = ma_control, tuneGrid = gbm_tuneGrid)
     classification_model <- gbm

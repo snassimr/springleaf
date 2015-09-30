@@ -24,7 +24,7 @@ me_input_data4 <- perform_data_preparation(me_input_data)
 
 library(doMC)
 closeAllConnections()
-registerDoMC(cores=3)
+registerDoMC(cores=4)
 
 library(caret)
 
