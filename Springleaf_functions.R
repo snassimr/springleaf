@@ -1,6 +1,9 @@
 perform_data_preparation <- function (me_input_data)
 {
   
+  target_index         <- which(names(me_input_data) == "target")
+  me_input_target_data <- me_input_data[,target_index]
+  
   me_input_data1       <- me_input_data[,-c(SYS_IDENTIFIER_FEATURES,target_index)]
   
   #CREATE DATA EXPLORATION REPORT
@@ -90,7 +93,7 @@ create_data_exploration_report <- function (input_data,iteration,output_mode)
   return (list(uv_data_report=uv_data_report))
 }
 
-create_model_assessment_data <- function (me_input_data,model_id)
+create_model_assessment_data <- function (me_input_data,ma_run_id)
 {
   
   set.seed(998)
@@ -114,35 +117,50 @@ create_model_assessment_data <- function (me_input_data,model_id)
 #     library(DMwR)
 #     m_input_data   <- SMOTE(target ~ ., data  = m_input_data)
 #     m_distribution <- table(m_input_data$target)
-#     save(m_distribution, file = "m_distribution.rda")
 #     }
 #     # DOWN SAMPLING
 #     if (SYS_ME_BALANCING == 'down') {
 #       m_input_data <- downSample(x = m_input_data[, names(m_input_data) !='target'],
 #                                  y = m_input_data$target , yname = "target")
 #       m_distribution <- table(m_input_data$target)
-#       save(m_distribution, file = "m_distribution.rda")
 #     }
+#     create_log_entry("",paste0(ma_run_id ," Balanced Distribution : "),"F")
+#     create_log_entry(names(m_distribution),m_distribution,"F")
+  
 
   
   classification_formula <- as.formula(paste("target" ,"~",
                                              paste(names(m_input_data)[!names(m_input_data)=='target'],collapse="+")))
   
-  CVfolds <- 5
+  SYS_CV_NFOLDS <- 5
   # CVreps  <- 4
+  
+  assesment_grid  <- NULL
+
+  if(SYS_MODEL_ID == 'RF') {
+    rf_tuneGrid    <- expand.grid(mtry = seq(100,300, length.out = 4))
+    assesment_grid <- rf_tuneGrid
+  }
+  
+  if(SYS_MODEL_ID == 'GBM') {
+    gbm_tuneGrid   <- expand.grid(interaction.depth = seq(3,5, length.out = 3),
+                                n.trees = seq(200,500, length.out = 4),
+                                shrinkage = seq(0.05,0.05, length.out = 1) , n.minobsinnode = 10)
+    assesment_grid <- gbm_tuneGrid
+   }
   
   #Index for the trainControl()
   set.seed(1045481)
-  tr_index <- createFolds(m_input_data$target, k=CVfolds)
+  tr_index <- createFolds(m_input_data$target, k=SYS_CV_NFOLDS)
   #Seeds for the trainControl()
   set.seed(1056)
-  tr_seeds <- vector(mode = "list", length = CVfolds+1)
-  # for(i in 1:5) tr_seeds[[i]] <- sample.int(1000, 5) # for RF
-  for(i in 1:5) tr_seeds[[i]] <- sample.int(1000, 9)   # for GBM
-  tr_seeds[[6]] <- sample.int(1000, 1)
+  tr_seeds <- vector(mode = "list", length = SYS_CV_NFOLDS+1)
+  for(i in 1:SYS_CV_NFOLDS) tr_seeds[[i]] <- sample.int(1000, dim(assesment_grid)[1]+SYS_CV_NFOLDS)
+  set.seed(1056)
+  tr_seeds[[SYS_CV_NFOLDS+1]] <- sample.int(1000, 1)
   
   ma_control <- trainControl(method = "cv",
-                             number = CVfolds,
+                             number = SYS_CV_NFOLDS,
                              index = tr_index,
                              seeds = tr_seeds,
                              # repeats = CVreps ,
@@ -158,46 +176,75 @@ create_model_assessment_data <- function (me_input_data,model_id)
   
   classification_model <- NULL
   start_time <- proc.time()
-  print(paste0(Sys.time()  , " ", model_id ," Model Assesment started"))
-  write(paste0(Sys.time()  , " ", model_id ," Model Assesment started") , "log.txt" , append = TRUE)
   
-  if(model_id == 'RF') {
-  rf_tuneGrid = expand.grid(mtry = seq(100,300, length.out = 4))
-  rf <- train(classification_formula , data = m_input_data , method = "rf", metric="ROC" ,
-              trControl = ma_control, tuneGrid = rf_tuneGrid , ntree = 501 , nodesize = 2 )
+  create_log_entry("",paste0(ma_run_id ," Model Assesment started"),"SF")
+  create_log_entry(names(assesment_grid),assesment_grid,"F")
+  
+  if(SYS_MODEL_ID == 'RF') {
+    rf <- train(classification_formula , data = m_input_data , method = "rf", metric="ROC" ,
+              trControl = ma_control, tuneGrid = assesment_grid , ntree = 501 , nodesize = 2 )
   classification_model <- rf
   }
   
-  if(model_id == 'GBM') {
-    gbm_tuneGrid = expand.grid(interaction.depth = seq(2,4, length.out = 3),
-                               n.trees = seq(200,400, length.out = 3),
-                               shrinkage = seq(0.05,0.15, length.out = 3) , n.minobsinnode = 2)
+  if(SYS_MODEL_ID == 'GBM') {
     gbm <- train(classification_formula , data = m_input_data , method = "gbm", metric="ROC" ,
-                trControl = ma_control, tuneGrid = gbm_tuneGrid)
+                trControl = ma_control, tuneGrid = assesment_grid , bag.fraction = 0.5)
     classification_model <- gbm
   }
   
-  end_time <- proc.time()
-  runtime <- round(as.numeric((end_time - start_time)[3]),2)
+  end_time <- proc.time() ; runtime <- round(as.numeric((end_time - start_time)[3]),2)
   
-  print(paste0(Sys.time()  , " ", SYS_MODEL_ID , " Model Assesment finished : " , runtime))
-  write(paste0(Sys.time()  , " ", SYS_MODEL_ID , " Model Assesment finished : " , runtime) , "log.txt" , append = TRUE)
+  create_log_entry("",paste0(ma_run_id , " Model Assesment finished : " , runtime),"SF")
+
+  importance_data_obj <- varImp(classification_model,scale = FALSE)$importance
+  importance_data     <- data.frame(Var = rownames(importance_data_obj),Imp = importance_data_obj$Overall)
+  head(importance_data,20)
   
+  save(classification_model, file = paste0(ma_run_id,".rda"))
   
   #Plotting results
   
 #   trellis.par.set(caretTheme())
 #   print(plot(rf))
   
-  create_pe_prediction_data(classification_model, m_input_data , e_input_data)
+  create_pe_prediction_data(classification_model, m_input_data , e_input_data , ma_run_id)
   
-  return(classification_model)
+  # Create final model
+  m_control <- trainControl(method = "none",
+                             classProbs = T,
+                             summaryFunction = twoClassSummary,
+                             sampling = SYS_ME_BALANCING,
+                             allowParallel = FALSE , verboseIter = TRUE)
+  
+  opt_parameters <- classification_model$bestTune
+  create_log_entry("",paste0(ma_run_id ," Optimal Model Creation started : "),"SF")
+  create_log_entry(names(opt_parameters),classification_model$bestTune,"SF")
+  
+  start_time <- proc.time()
+  
+  if(SYS_MODEL_ID == 'RF') {
+    opt_rf <- train(classification_formula , data = me_input_data , method = "rf", 
+                trControl = m_control, tuneGrid = opt_parameters , ntree = 501 , nodesize = 2 )
+    opt_classification_model <- opt_rf
+  }
+  
+  if(SYS_MODEL_ID == 'GBM') {
+    opt_gbm <- train(classification_formula , data = m_input_data , method = "gbm", 
+                 trControl = m_control, tuneGrid = classification_model$bestTune)
+    opt_classification_model <- opt_gbm
+  }
+  
+  end_time <- proc.time() ; runtime <- round(as.numeric((end_time - start_time)[3]),2)
+  
+  create_log_entry("",paste0(ma_run_id , " Optimal Model Creation finished : " , runtime),"SF")
+  
+  return(opt_classification_model)
 }
 
 # classification_model <- glmnet
 # classification_model <- svmLinear
 # classification_model <- rf
-create_pe_prediction_data <- function (classification_model, m_input_data , e_input_data)
+create_pe_prediction_data <- function (classification_model, m_input_data , e_input_data , ma_run_id)
 {
   
   e_input_data <- process_input_uknown_data(e_input_data , m_input_data)
@@ -218,9 +265,8 @@ create_pe_prediction_data <- function (classification_model, m_input_data , e_in
   prediction.obj <- prediction(prediction_class_score,  e_input_data$target , label.ordering = c("t0","t1"))
   auc <- performance(prediction.obj, measure = 'auc')@y.values
   
-  print(paste0(Sys.time()  , " ", SYS_MODEL_ID , " Evaluation AUC : " , auc))
-  write(paste0(Sys.time()  , " ", SYS_MODEL_ID , " Evaluation AUC : " , auc) , "log.txt" , append = TRUE)
-  
+  create_log_entry("",paste0(ma_run_id , " Evaluation AUC : " , auc),"SF")
+
 }
 
 create_p_prediction_data <- function (classification_model,p_input_data,m_input_data)
@@ -304,3 +350,25 @@ create_features_ts <- function(me_ts_input_data,me_ts_var_features)
   return(data.frame(me_ts_output_data))
   
 }
+
+create_log_entry <- function(message_title = "", message , log_mode)
+
+{
+  current_library <- getwd()
+  
+  setwd(SYSG_SYSTEM_DIR)
+
+  if (regexpr("S",log_mode)>0) {
+    print(message_title , row.names = FALSE)
+    print(message , row.names = FALSE)
+  }
+  
+  if (regexpr("F",log_mode)>0) {
+    write.table(message_title , "log.txt", append = TRUE,col.names = FALSE ,  row.names = FALSE , quote = FALSE)
+    write.table(paste0(Sys.time(), " : " , message) , "log.txt", append = TRUE,col.names = FALSE ,  row.names = FALSE , quote = FALSE)
+  }
+  
+  setwd(current_library)
+  
+}  
+  

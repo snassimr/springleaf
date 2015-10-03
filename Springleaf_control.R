@@ -1,55 +1,59 @@
 ######################################## Springleaf_control.R ######################################
-
+SYSG_SYSTEM_DIR            <- "/home/rstudio/springleafpj/"
 SYSG_INPUT_DIR             <- "/home/rstudio/Dropbox/springleaf/input/"
 SYSG_ME_DATA_FILENAME      <- "train.csv"
 SYSG_OUTPUT_MODELING_DIR   <- "/home/rstudio/output_modeling"
 
+source("/home/rstudio/springleafpj/Springleaf_functions.R")
+create_log_entry("", " Starting run ....................................","SF")
+create_log_entry("", "Starting prepare data","SF")
 #READ MODELING DATA
 setwd(SYSG_INPUT_DIR)
 me_input_file  <- file(SYSG_ME_DATA_FILENAME)
 me_input_data  <- read.csv(me_input_file, header = TRUE , sep = "," , na.string="NA")
 
-#REMOVE INDENTIFIERS FEATURES BY COLUMN INDEX
+#PREPARE NODELLING DATA
 SYS_IDENTIFIER_FEATURES <- 1
-target_index         <- which(names(me_input_data) == "target")
-me_input_target_data <- me_input_data[,target_index]
-
-source("/home/rstudio/springleafpj/Springleaf_functions.R")
 me_input_data4 <- perform_data_preparation(me_input_data)
+create_log_entry("","Finsihed prepare data","SF")
 
-# me_input_data  <- NULL
-# me_input_data1 <- NULL
-# me_input_data2 <- NULL
-# me_input_data3 <- NULL
-
+# PREPARE FOR MODEL ASSESSMENT
 library(doMC)
 closeAllConnections()
 registerDoMC(cores=4)
 
 library(caret)
 
-set.seed(1234)
-m_sample_indexes <- createDataPartition(me_input_data4$target , p = 1.0, list = FALSE)
+# RF , GBM
+SYS_MODEL_ID      <- "GBM"
+SYS_INPUT_FRACTION_SEED <- 1234
+# (0;1])
+SYS_INPUT_DATA_FRACTION <-  1
+
+ma_run_id <- paste0("MA_","#",SYS_INPUT_FRACTION_SEED,"#",SYS_INPUT_DATA_FRACTION,
+                 "#",SYS_MODEL_ID , "#" , Sys.time())
+
+set.seed(SYS_INPUT_FRACTION_SEED)
+m_sample_indexes <- createDataPartition(me_input_data4$target , p = SYS_INPUT_DATA_FRACTION , list = FALSE)
 
 me_input_data5 <- me_input_data4[m_sample_indexes,]
 
 setwd(SYSG_OUTPUT_MODELING_DIR)
 source("/home/rstudio/springleafpj/Springleaf_functions.R")
 
-# RF , GBM
-SYS_MODEL_ID <- "GBM"
-
-me_classification_model <- create_model_assessment_data(me_input_data5,SYS_MODEL_ID)
+me_classification_model <- create_model_assessment_data(me_input_data5,ma_run_id)
 
 setwd(SYSG_OUTPUT_MODELING_DIR)
-save(me_classification_model, file = paste0(SYS_MODEL_ID,".rda"))
+model_run_id <- paste0("MODEL_","#",SYS_INPUT_FRACTION_SEED,"#",SYS_INPUT_DATA_FRACTION,
+                    "#",SYS_MODEL_ID , "#" , Sys.time())
+save(me_classification_model, file = paste0(model_run_id,".rda"))
 
 #READ PREDICTION DATA
 SYSG_P_DATA_FILENAME       <- "test.csv"
 SYSG_OUTPUT_PREDICTION_DIR <- "/home/rstudio/springleafpj/"
-
 setwd(SYSG_INPUT_DIR)
-write(paste0(Sys.time()  , " Starting loading prediction data") , "log.txt" , append = TRUE)
+
+create_log_entry("", "Starting prediction on data","SF")
 p_input_file   <- file(SYSG_P_DATA_FILENAME)
 p_input_data   <- read.csv(p_input_file, header = TRUE , sep = "," , na.string="NA")
 
@@ -63,7 +67,7 @@ if (exists("me_features_remove"))
   rm(me_features_remove)
 
 setwd(SYSG_OUTPUT_MODELING_DIR)
-p_classification_model <- get(load(paste0(SYS_MODEL_ID,".rda")))
+p_classification_model <- get(load(paste0(model_run_id,".rda")))
 me_ts_var_features     <- get(load("dp_me_ts_var_features.rda"))
 me_features_replace    <- get(load("dp_me_features_replace.rda"))
 me_features_remove     <- get(load("dp_me_features_remove.rda"))
@@ -77,15 +81,14 @@ p_input_data  <- NULL
 p_input_data2 <- NULL
 
 source("/home/rstudio/springleafpj/Springleaf_functions.R")
-write(paste0(Sys.time()  , " Starting prediction on data") , "log.txt" , append = TRUE)
 prediction_data <- create_p_prediction_data(p_classification_model, p_input_data3 , me_input_data5)
 
 setwd(SYSG_OUTPUT_PREDICTION_DIR)
 options(scipen=10)
-write.csv(prediction_data, file = "submission.csv", row.names = FALSE)
+write.csv(prediction_data, file = paste0("submission_", model_run_id ,".csv"), row.names = FALSE)
 options(scipen=0)
-
-
+create_log_entry("","Finished prediction on data","SF")
+create_log_entry("","Finished run ....................................","SF")
 
 
 
