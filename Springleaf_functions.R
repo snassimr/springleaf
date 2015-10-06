@@ -1,30 +1,41 @@
-perform_data_preparation <- function (me_input_data)
+perform_data_preparation <- function()
 {
+  library(readr)
+  #READ MODELING DATA
+  SYSG_ME_DATA_FILENAME      <- "train.csv"
+  setwd(SYSG_INPUT_DIR)
+  me_input_data  <- read_csv(SYSG_ME_DATA_FILENAME)
+  #READ PREDICTION DATA
+  SYSG_P_DATA_FILENAME       <- "test.csv"
+  p_input_data   <- read_csv(SYSG_P_DATA_FILENAME)
   
-  target_index         <- which(names(me_input_data) == "target")
-  me_input_target_data <- me_input_data[,target_index]
+  target_index         <- which(names(me_input_data) == SYS_TARGET_NAME)
+  
+  me_input_data[[SYS_TARGET_NAME]] <- as.factor(paste0("t", me_input_data[[SYS_TARGET_NAME]]))
+  p_input_data[[SYS_TARGET_NAME]]  <- as.factor(paste0("t", p_input_data[[SYS_TARGET_NAME]]))
   
   me_input_data1       <- me_input_data[,-c(SYS_IDENTIFIER_FEATURES,target_index)]
+  me_input_target_data <- me_input_data[[SYS_TARGET_NAME]]
   
+  ################################################# PREPARE MODELING AND EVALUATION DATA
   #CREATE DATA EXPLORATION REPORT
-  source("/home/rstudio/springleafpj/Springleaf_functions.R")
   me_data_exploration_report <- create_data_exploration_report(me_input_data1,iteration = 1,output_mode = 'CSV' )
   uv_data_report1            <- data.frame(me_data_exploration_report$uv_data_report)
   
   #PREPARE DATA
-  SYS_MIN_REQ_DISTINCT_VALUES <- 1
+  SYS_MIN_REQ_DISTINCT_VALUES <- 2
   SYS_MAX_REQ_DISTINCT_VALUES <- 50
   SYS_REQ_MIN_NUM_NAS         <- 0
   SYS_REQ_MAX_NUM_NAS         <- 100
   
   # CREATE 
-  me_ts_var_features   <- as.character(subset(uv_data_report1 , FEATURE_TYPE == "timestamp" , select = FEATURE_NAME)$FEATURE_NAME)
-  
-  me_features_replace  <- c(me_ts_var_features)
-  me_ts_features_data  <- create_features_ts(me_input_data1[,names(me_input_data1) %in% me_ts_var_features],me_ts_var_features)
-  me_input_data2       <- data.frame(me_input_data1[,!(names(me_input_data1) %in% me_features_replace)],me_ts_features_data)
+  me_ts_var_features    <- as.character(subset(uv_data_report1 , FEATURE_TYPE == "timestamp" , select = FEATURE_NAME)$FEATURE_NAME)
+  me_features_replace   <- c(me_ts_var_features,"VAR_0241")
+  me_vbef_features_data <- create_vbef_features(me_input_data1[,names(me_input_data1) %in% me_features_replace],me_ts_var_features)
+  me_input_data2        <- data.frame(me_input_data1[,!(names(me_input_data1) %in% me_features_replace)],me_vbef_features_data)
   
   me_data_exploration_report <- create_data_exploration_report(me_input_data2,iteration = 2,output_mode = 'CSV' )
+  
   uv_data_report2            <- data.frame(me_data_exploration_report$uv_data_report)
   
   # TRANSFORM
@@ -41,18 +52,48 @@ perform_data_preparation <- function (me_input_data)
   me_high_var_features <- as.character(subset(uv_data_report3 , NO_DISTINCT > SYS_MAX_REQ_DISTINCT_VALUES & FEATURE_TYPE == "categorical", select = FEATURE_NAME)$FEATURE_NAME)
   me_high_NAs_features <- as.character(subset(uv_data_report3 , NO_NAs > SYS_REQ_MAX_NUM_NAS , select = FEATURE_NAME)$FEATURE_NAME)
   
-  me_features_remove <- c(me_low_var_features,me_high_var_features,me_high_NAs_features)
-  me_input_data4     <- me_input_data3[,!(names(me_input_data3) %in% me_features_remove)]
-  me_input_data4     <- data.frame(me_input_data4,target=me_input_target_data)
+  # Combine features to remove
+  me_features_remove  <- c(me_low_var_features,me_high_var_features,me_high_NAs_features)
+  # Add feaures back
+  me_features_add_exc <- c("VAR_0241_ZC")
+  me_features_select  <- names(me_input_data3)[!(names(me_input_data3) %in% me_features_remove)]
+  me_input_data4      <- me_input_data3[,c(me_features_select,me_features_add_exc)]
   
-  setwd(SYSG_OUTPUT_MODELING_DIR)
-  save(me_ts_var_features,file = paste0("dp_me_ts_var_features",".rda"))
-  save(me_features_replace,file = paste0("dp_me_features_replace",".rda"))
-  save(me_features_remove,file = paste0("dp_me_features_remove",".rda"))
+  me_input_features   <- names(me_input_data4)
+  # Assuming no data rows drop
+  me_input_data4      <- data.frame(me_input_data4,target=me_input_target_data)
   
-  return(me_input_data4)
+  ################################################# PREPARE PREDICTION DATA
+  # Assuming the same set of input features in train and test data
+  p_vbef_features_data      <- create_vbef_features(p_input_data[,(names(p_input_data) %in% me_features_replace)],me_ts_var_features)
+  p_input_data2             <- data.frame(p_input_data[,!(names(p_input_data) %in% me_features_replace)],p_vbef_features_data)
   
+  p_input_data3             <- p_input_data2[,c("ID",me_input_features)]
   
+  for (f in me_input_features) {
+    if (class(me_input_data4[[f]])=="factor" || class(me_input_data4[[f]])=="character") {
+      levels <- unique(c(as.character(me_input_data4[[f]]), as.character(p_input_data3[[f]])))
+      me_input_data4[[f]]  <- factor(me_input_data4[[f]], levels=levels)
+      p_input_data3[[f]]   <- factor(p_input_data3[[f]],  levels=levels)
+    }
+  }
+  
+  setwd(SYSG_SYSTEM_DIR)
+  save(me_input_data4, file = paste0("me_data.rda"))
+  save(p_input_data3, file = paste0("p_data.rda"))
+
+# #   #PREPARE MODELLING DATA
+#   if (exists("me_data"))              
+#     rm(me_data)
+#   setwd(SYSG_SYSTEM_DIR)
+#   me_data           <- get(load("me_data.rda"))
+#   
+#   if (exists("p_data"))              
+#     rm(p_data)
+#   setwd(SYSG_SYSTEM_DIR)
+#   p_data           <- get(load("p_data.rda"))
+  
+ gc(T,T) 
 }
 
 create_data_exploration_report <- function (input_data,iteration,output_mode)
@@ -101,12 +142,10 @@ create_model_assessment_data <- function (me_input_data,ma_run_id)
   m_input_data <- me_input_data[ m_indexes,]
   e_input_data <- me_input_data[-m_indexes,]
   
-  m_input_data$target <- as.factor(paste0("t", m_input_data$target))
-  e_input_data$target <- as.factor(paste0("t", e_input_data$target))
-  
   m_input_data$target <- factor(m_input_data$target,levels(m_input_data$target)[c(2,1)])
   e_input_data$target <- factor(e_input_data$target,levels(e_input_data$target)[c(2,1)])
   
+
 ###############################################################################################################
   # "DOWN" , "SMOTE"
   SYS_ME_BALANCING <- 'down'
@@ -132,8 +171,16 @@ create_model_assessment_data <- function (me_input_data,ma_run_id)
   classification_formula <- as.formula(paste("target" ,"~",
                                              paste(names(m_input_data)[!names(m_input_data)=='target'],collapse="+")))
   
+  # Initialize model assesment objects
+  start_time <- NULL
+  end_time             <- NULL
+  classification_model <- NULL
+  start_time <- proc.time()
+  
+  if(SYS_MODEL_ID %in% c("RF","GBM","XGBC")) {
+    
   SYS_CV_NFOLDS <- 5
-  # CVreps  <- 4
+# SYS_N_REP     <- 4
   
   assesment_grid  <- NULL
 
@@ -147,7 +194,21 @@ create_model_assessment_data <- function (me_input_data,ma_run_id)
                                 n.trees = seq(200,500, length.out = 4),
                                 shrinkage = seq(0.05,0.05, length.out = 1) , n.minobsinnode = 10)
     assesment_grid <- gbm_tuneGrid
-   }
+  }
+  
+  if(SYS_MODEL_ID == 'XGBC') {
+    xgb_tuneGrid   <- expand.grid(nrounds = seq(300,500, length.out = 3) , 
+                                  eta     = seq(0.02,0.02, length.out = 1) , 
+                                  max_depth = seq(4,7, length.out = 4))
+    assesment_grid <- xgb_tuneGrid
+    
+    xgb_tuneGrid   <- expand.grid(nrounds = seq(500,500, length.out = 1) , 
+                                  eta     = seq(0.02,0.02, length.out = 1) , 
+                                  max_depth = seq(7,7, length.out = 1))
+    assesment_grid <- xgb_tuneGrid
+    
+  }
+  
   
   #Index for the trainControl()
   set.seed(1045481)
@@ -167,15 +228,12 @@ create_model_assessment_data <- function (me_input_data,ma_run_id)
                              # returnResamp = "final" ,
                              classProbs = T,
                              summaryFunction = twoClassSummary,
-                             sampling = SYS_ME_BALANCING,
+                             # sampling = SYS_ME_BALANCING,
                              allowParallel = TRUE , verboseIter = TRUE)
   
   
   
   ############################################################# MODEL CREATION #####################################
-  
-  classification_model <- NULL
-  start_time <- proc.time()
   
   create_log_entry("",paste0(ma_run_id ," Model Assesment started"),"SF")
   create_log_entry(names(assesment_grid),assesment_grid,"F")
@@ -187,18 +245,69 @@ create_model_assessment_data <- function (me_input_data,ma_run_id)
   }
   
   if(SYS_MODEL_ID == 'GBM') {
-    gbm <- train(classification_formula , data = m_input_data , method = "gbm", metric="ROC" ,
-                trControl = ma_control, tuneGrid = assesment_grid , bag.fraction = 0.5)
+    # gbm_preprocess <- preProcess(x=m_input_data, method="bagImpute")
+    gbm <- train(classification_formula , data = m_input_data , method = "gbm", 
+                 # preProcess = gbm_preprocess,
+                 metric="ROC" , trControl = ma_control, tuneGrid = assesment_grid , bag.fraction = 0.5)
+    
     classification_model <- gbm
+  }
+  
+  if(SYS_MODEL_ID == 'XGBC') {
+    xgbc <- train(classification_formula , data = m_input_data , method = "xgbTree", 
+                 metric="ROC" , trControl = ma_control, tuneGrid = assesment_grid , 
+                 objective           = 'binary:logistic',
+                 eval_metric         = "auc", 
+                 min_child_weight    = 5,
+                 # subsample           = 0.6,
+                 # colsample_bytree    = 0.6,
+                 nthread = 4
+                 # ,early.stop.round = 50
+                 )
+    
+    classification_model <- xgbc
+  }
+  }
+  
+  if(SYS_MODEL_ID == 'XGB') {
+  library(xgboost)  
+          xgb_m_input_data     <- xgb.DMatrix(data.matrix(m_input_data), label=as.integer(str_replace(m_input_data$target,"t","")))
+          xgb_e_input_data     <- xgb.DMatrix(data.matrix(e_input_data), label=as.integer(str_replace(e_input_data$target,"t","")))
+    
+    watchlist  <- list(eval = xgb_e_input_data, train = xgb_m_input_data)
+    xgb_param  <- list(objective           = "binary:logistic", 
+                       eta                 = 0.02,
+                       max_depth           = 7,  
+                       eval_metric         = "auc",
+                       nthread = 6
+                      )
+    
+    xgb       <- xgb.train (params              = xgb_param ,
+                            data                = xgb_m_input_data, 
+                            # subsample           = 0.6,
+                            # colsample_bytree    = 0.6,
+                            min_child_weight    = 5,
+                            nrounds             = 500, 
+                            verbose             = 1, 
+                            early.stop.round    = 50,
+                            watchlist           = watchlist,
+                            maximize            = TRUE 
+                      )
+    
+    classification_model <- xgb
   }
   
   end_time <- proc.time() ; runtime <- round(as.numeric((end_time - start_time)[3]),2)
   
   create_log_entry("",paste0(ma_run_id , " Model Assesment finished : " , runtime),"SF")
 
-  importance_data_obj <- varImp(classification_model,scale = FALSE)$importance
-  importance_data     <- data.frame(Var = rownames(importance_data_obj),Imp = importance_data_obj$Overall)
-  head(importance_data,20)
+#   library(caret)
+#   if (exists("p_classification_model"))              
+#     rm(classification_model)
+#   classification_model     <- get(load("MA_#1234#1#XGBC#2015-10-05 11:04:49.rda"))
+#   importance_data_obj <- varImp(classification_model,scale = FALSE)$importance
+#   importance_data     <- data.frame(Var = rownames(importance_data_obj),Imp = importance_data_obj$Overall)
+#   head(importance_data,20)
   
   save(classification_model, file = paste0(ma_run_id,".rda"))
   
@@ -213,7 +322,7 @@ create_model_assessment_data <- function (me_input_data,ma_run_id)
   m_control <- trainControl(method = "none",
                              classProbs = T,
                              summaryFunction = twoClassSummary,
-                             sampling = SYS_ME_BALANCING,
+                             # sampling = SYS_ME_BALANCING,
                              allowParallel = FALSE , verboseIter = TRUE)
   
   opt_parameters <- classification_model$bestTune
@@ -229,10 +338,27 @@ create_model_assessment_data <- function (me_input_data,ma_run_id)
   }
   
   if(SYS_MODEL_ID == 'GBM') {
-    opt_gbm <- train(classification_formula , data = m_input_data , method = "gbm", 
+    opt_gbm <- train(classification_formula , data = me_input_data , method = "gbm", 
                  trControl = m_control, tuneGrid = classification_model$bestTune)
     opt_classification_model <- opt_gbm
   }
+  
+  if(SYS_MODEL_ID == 'XGBC') {
+    
+    # xgb_me_input_data <- xgb.DMatrix(data.matrix(me_input_data), label=me_input_data$target)
+
+    opt_xgbc <- train(classification_formula , data = me_input_data , method = "xgbTree", 
+                      trControl = m_control , tuneGrid = classification_model$bestTune , 
+                      objective = 'binary:logistic'
+                     )
+    
+    opt_classification_model <- opt_xgbc
+  }
+  
+  if(SYS_MODEL_ID == 'XGB') {
+    opt_classification_model <- xgb
+  }
+  
   
   end_time <- proc.time() ; runtime <- round(as.numeric((end_time - start_time)[3]),2)
   
@@ -247,7 +373,7 @@ create_model_assessment_data <- function (me_input_data,ma_run_id)
 create_pe_prediction_data <- function (classification_model, m_input_data , e_input_data , ma_run_id)
 {
   
-  e_input_data <- process_input_uknown_data(e_input_data , m_input_data)
+  # e_input_data <- process_input_uknown_data(e_input_data , m_input_data)
   e_input_data <- process_input_missing_data(e_input_data)
   
   prediction_class  <- predict(classification_model,e_input_data , type = "raw")
@@ -272,11 +398,10 @@ create_pe_prediction_data <- function (classification_model, m_input_data , e_in
 create_p_prediction_data <- function (classification_model,p_input_data,m_input_data)
 {
   
-  p_input_data$target <- as.factor(paste0("t", p_input_data$target))
   # Assuming the same order of instances after input data processing for predictions
   p_input_data_ident  <- p_input_data[,SYS_IDENTIFIER_FEATURES]
   
-  p_input_data <- process_input_uknown_data(p_input_data[,names(p_input_data)[-c(SYS_IDENTIFIER_FEATURES)]],m_input_data)
+  # p_input_data <- process_input_uknown_data(p_input_data[,names(p_input_data)[-c(SYS_IDENTIFIER_FEATURES)]],m_input_data)
   p_input_data <- process_input_missing_data(p_input_data)
 
   prediction_class  <- predict(classification_model,p_input_data , type = "raw")
@@ -327,14 +452,20 @@ process_input_missing_data <- function (ep_input_data)
     }
   }
   
+#   library(DMwR)
+#   input_data_n <- knnImputation(input_data, 3)
+  
   return (input_data)
 }
 
-create_features_ts <- function(me_ts_input_data,me_ts_var_features)
+create_vbef_features <- function(me_vbef_input,me_ts_var_features)
 {
   
   # Create Day , Month and Hour features for time series features
-
+  
+  me_vbef_output    <- NULL
+  
+  me_ts_input_data <-  me_vbef_input[,names(me_vbef_input) %in% me_ts_var_features]
   me_ts_output_data <- NULL
   
   for (i in 1:ncol(me_ts_input_data)) {
@@ -347,7 +478,13 @@ create_features_ts <- function(me_ts_input_data,me_ts_var_features)
     me_ts_output_data <- cbind(me_ts_output_data,i_me_ts_output_data)
   }
   
-  return(data.frame(me_ts_output_data))
+  library(stringr)
+  VAR_0241_ZC <- paste0("ZC",str_sub(str_pad(me_vbef_input[["VAR_0241"]] ,5,pad = "0"),0,2))
+  
+  me_vbef_output <- data.frame(me_ts_output_data,VAR_0241_ZC)
+  
+  return(me_vbef_output)
+  
   
 }
 
