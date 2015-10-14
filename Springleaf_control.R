@@ -2,6 +2,8 @@
 SYSG_SYSTEM_DIR            <- "/home/rstudio/springleafpj/"
 SYSG_INPUT_DIR             <- "/home/rstudio/Dropbox/springleaf/input/"
 SYSG_OUTPUT_MODELING_DIR   <- "/home/rstudio/output_modeling"
+# P   - run data preparation including read data , prepare modelling , evaluation and prediction data + new features
+# MEP - read prepared data and run model assesment , evaluation and prediction for submission
 SYS_RUN_MODE               <- "MEP" # P , MEP
 SYS_IDENTIFIER_FEATURES <- 1
 SYS_TARGET_NAME         <- "target"
@@ -14,10 +16,13 @@ if (SYS_RUN_MODE == "P") {
    create_log_entry("", "Starting prepare data","SF")
    perform_data_preparation()
    gc(T,T)
-   stop (SYS_RUN_MODE)
+   stop ("Data preparation finished ... ")
 }
 
-############################################ MODEL ASSESSMENT
+if (SYS_RUN_MODE != "MEP")
+   stop ("Illegal SYS_RUN_MODE :" , SYS_RUN_MODE)
+
+############################################ MODEL ASSESSMENT ############################################
 
 # source("/home/rstudio/springleafpj/Springleaf_functions.R")
 create_log_entry("", " Starting run ....................................","SF")
@@ -39,7 +44,7 @@ library(caret)
 library(stringr)
 
 # START MODEL ASSESSMENT
-SYS_MODEL_ID            <- "XGBC" # RF , GBM , XGB , XGBC , GLMN
+SYS_MODEL_ID            <- "XGBC" 
 SYS_INPUT_FRACTION_SEED <- 1234
 SYS_INPUT_DATA_FRACTION <-  1   # (0;1])
 

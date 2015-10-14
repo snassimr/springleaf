@@ -29,7 +29,7 @@ perform_data_preparation <- function()
   
   # CREATE NEW VALUE-BASED FEATURES 
   me_ts_var_features    <- as.character(subset(uv_data_report1 , FEATURE_TYPE == "timestamp" , select = FEATURE_NAME)$FEATURE_NAME)
-  me_vbef_features      <- c(me_ts_var_features,"VAR_0241","VAR_0493")
+  me_vbef_features      <- c(me_ts_var_features,"VAR_0241")
   me_vbef_features_data <- create_vbef_features(me_input_data1[,me_vbef_features], me_ts_var_features)
   
   # REPLACE TIME SERIES and ZIP BASED FEATURES
@@ -45,8 +45,8 @@ perform_data_preparation <- function()
   me_input_data3             <- data.frame(me_input_data2[,!(names(me_input_data2) %in% me_fill_NAs_features)],me_fill_NAs_features_data)
   
   # CREATE NEW LEARNING-BASED FEATURES
-  me_disc_features           <- c("VAR_1398", "VAR_1747")
-  me_lbef_features_data      <- create_lbef_features(me_input_data3[,me_disc_features],
+  me_disc_features             <- c("VAR_1398", "VAR_1747","VAR_1859","VAR_1322")
+  me_lbef_features_data        <- create_lbef_features(me_input_data3[,me_disc_features],
                                                 me_input_target_data,
                                                 me_disc_features)
   # ADD DISCRETIZATION FEATURES
@@ -61,18 +61,18 @@ perform_data_preparation <- function()
   me_high_NAs_features <- as.character(subset(uv_data_report3 , NO_NAs > SYS_REQ_MAX_NUM_NAS , select = FEATURE_NAME)$FEATURE_NAME)
   
   # Combine features to remove
-  me_features_remove  <- c(me_low_var_features,me_high_var_features,me_high_NAs_features,me_disc_features)
+  me_features_remove   <- c(me_low_var_features,me_high_var_features,me_high_NAs_features,me_disc_features)
   # Add features back
-  me_features_add_exc  <- c("VAR_0241_ZC","VAR_0493_GEN5")
+  me_features_add_exc  <- c("VAR_0241_ZC")
   me_features_select   <- names(me_input_data3)[!(names(me_input_data3) %in% me_features_remove)]
   me_input_data4       <- me_input_data3[,c(me_features_select,me_features_add_exc)]
   
   me_data_exploration_report <- create_data_exploration_report(me_input_data4,iteration = 4,output_mode = 'CSV' )
   uv_data_report4            <- data.frame(me_data_exploration_report$uv_data_report)
   
-  me_input_features   <- names(me_input_data4)
+  me_input_features    <- names(me_input_data4)
   # Assuming no data rows drop
-  me_input_data4      <- data.frame(me_input_data4,target=me_input_target_data)
+  me_input_data4       <- data.frame(me_input_data4,target=me_input_target_data)
   
   ################################################# PREPARE PREDICTION DATA
   # Assuming the same set of input features in train and test data and same number 
@@ -167,23 +167,25 @@ create_model_assessment_data <- function (me_input_data,ma_run_id)
   SYS_CV_NFOLDS        <- 5
 
 
-  xgb_tuneGrid   <- expand.grid(nrounds = seq(300,500, length.out = 3) , 
-                                  eta     = seq(0.02,0.02, length.out = 1) , 
-                                  max_depth = seq(4,7, length.out = 4))
+  # Greed for parameter evaluation
+  #   xgb_tuneGrid   <- expand.grid(  nrounds   = seq(400,600, length.out = 3) , 
+  #                                   eta       = seq(0.02,0.05, length.out = 4) , 
+  #                                   max_depth = seq(9,12, length.out = 4))
+  #   assesment_grid <- xgb_tuneGrid
+    
+  # Best parameters set  
+  xgb_tuneGrid   <- expand.grid(  nrounds = 500 , 
+                                  eta     = 0.02, 
+                                  max_depth = 10)
   assesment_grid <- xgb_tuneGrid
     
-  xgb_tuneGrid   <- expand.grid(nrounds = seq(500 ,500, length.out = 1) , 
-                                  eta     = seq(0.02,0.02, length.out = 1) , 
-                                  max_depth = seq(10,10, length.out = 1))
-  assesment_grid <- xgb_tuneGrid
     
-    
-  #Index for the trainControl()
-  set.seed(1045481)
-  tr_index <- createFolds(m_input_data$target, k=SYS_CV_NFOLDS)
-  #Seeds for the trainControl()
-  set.seed(1056)
-  tr_seeds <- vector(mode = "list", length = SYS_CV_NFOLDS+1)
+  # Index for the trainControl()
+   set.seed(1045481)
+   tr_index <- createFolds(m_input_data$target, k=SYS_CV_NFOLDS)
+  # Seeds for the trainControl()
+   set.seed(1056)
+   tr_seeds <- vector(mode = "list", length = SYS_CV_NFOLDS+1)
   for(i in 1:SYS_CV_NFOLDS) tr_seeds[[i]] <- sample.int(1000, dim(assesment_grid)[1]+SYS_CV_NFOLDS)
   set.seed(1056)
   tr_seeds[[SYS_CV_NFOLDS+1]] <- sample.int(1000, 1)
@@ -202,15 +204,12 @@ create_model_assessment_data <- function (me_input_data,ma_run_id)
   create_log_entry("",paste0(ma_run_id ," Model Assesment started"),"SF")
   create_log_entry(names(assesment_grid),assesment_grid,"F")
   
-  xgbc <- train(classification_formula , data = m_input_data , method = "xgbTree", 
-                 metric="ROC" , trControl = ma_control, tuneGrid = assesment_grid , 
+  xgbc <- train( classification_formula , data = m_input_data , 
+                 method = "xgbTree", metric="ROC" , trControl = ma_control, tuneGrid = assesment_grid , 
                  objective           = 'binary:logistic',
-                 eval_metric       = "auc", 
                  min_child_weight    = 5,
                  subsample           = 0.6,
-                 # colsample_bytree  = 0.6,
                  nthread             = 4
-                 # ,early.stop.round = 50
                  )
     
   classification_model <- xgbc
@@ -219,21 +218,24 @@ create_model_assessment_data <- function (me_input_data,ma_run_id)
   
   create_log_entry("",paste0(ma_run_id , " Model Assesment finished : " , runtime),"SF")
 
+  # Output feature importance based on modelling data
   importance_data_obj <- varImp(classification_model,scale = FALSE)$importance
   importance_data     <- data.frame(Var = rownames(importance_data_obj),Imp = importance_data_obj$Overall,stringsAsFactors=FALSE)
 
   create_log_entry("",paste0(ma_run_id , " Feature Importance : "),"F")
-  create_log_entry(names(importance_data),head(importance_data,50),"F")
+  create_log_entry(names(importance_data),head(importance_data,200),"F")
 
   save(classification_model, file = paste0(ma_run_id,".rda"))
   
-  create_pe_prediction_data(classification_model, m_input_data , e_input_data , ma_run_id)
+  # Create predictions based on evaluation data
+  create_pe_prediction_data(classification_model, e_input_data , ma_run_id)
   
-  # Create final model
-  m_control <- trainControl(method           = "none",
+  # Create final model using optimal parameters tuned by caret + non-tunable parameters after manual evaluation
+  # Use all train data set
+  m_control <- trainControl(method          = "none",
                             classProbs      = T,
                             summaryFunction = twoClassSummary,
-                            allowParallel   = FALSE , 
+                            allowParallel   = TRUE , 
                             verboseIter     = TRUE)
   
   opt_parameters <- classification_model$bestTune
@@ -242,9 +244,13 @@ create_model_assessment_data <- function (me_input_data,ma_run_id)
   
   start_time <- proc.time()
   
-  opt_xgbc <- train(classification_formula , data = me_input_data , method = "xgbTree", 
-                      trControl = m_control , tuneGrid = classification_model$bestTune , 
-                      objective = 'binary:logistic')
+  opt_xgbc <- train(classification_formula , data = me_input_data , 
+                    method = "xgbTree", trControl = m_control , tuneGrid = classification_model$bestTune , 
+                    objective           = 'binary:logistic',
+                    min_child_weight    = 5,
+                    subsample           = 0.6,
+                    nthread             = 4
+                    )
   
   opt_classification_model <- opt_xgbc
   
@@ -255,29 +261,29 @@ create_model_assessment_data <- function (me_input_data,ma_run_id)
   return(opt_classification_model)
 }
 
-# classification_model <- svmLinear
-
-create_pe_prediction_data <- function (classification_model, m_input_data , e_input_data , ma_run_id)
+# Function predicts model on evaluation data and output AUC to log
+create_pe_prediction_data <- function (classification_model, p_input_data , ma_run_id)
 {
   
-  prediction_class  <- predict(classification_model,e_input_data , type = "raw")
-  prediction_score  <- predict(classification_model,e_input_data , type = "prob")
+  prediction_class  <- predict(classification_model,p_input_data , type = "raw")
+  prediction_score  <- predict(classification_model,p_input_data , type = "prob")
   
   library(ROCR)
   prediction_class_score <- NULL
   
-  for (i in 1:dim(e_input_data)[1]) {
-    i_prediction_class_score <- ifelse(e_input_data$target[i]=='t1', prediction_score[i,"t1"], 1 - prediction_score[i,"t0"])
-    prediction_class_score <- c(prediction_class_score,i_prediction_class_score)
+  for (i in 1:dim(p_input_data)[1]) {
+    i_prediction_class_score <- ifelse(p_input_data$target[i]=='t1', prediction_score[i,"t1"], 1 - prediction_score[i,"t0"])
+    prediction_class_score   <- c(prediction_class_score,i_prediction_class_score)
   }
   
-  prediction.obj <- prediction(prediction_class_score,  e_input_data$target , label.ordering = c("t0","t1"))
-  auc <- performance(prediction.obj, measure = 'auc')@y.values
+  prediction.obj <- prediction(prediction_class_score,  p_input_data$target , label.ordering = c("t0","t1"))
+  auc            <- performance(prediction.obj, measure = 'auc')@y.values
   
   create_log_entry("",paste0(ma_run_id , " Evaluation AUC : " , auc),"SF")
 
 }
 
+# Function predicts model on prediction/submission data
 create_p_prediction_data <- function (classification_model,p_input_data,m_input_data)
 {
   
@@ -356,7 +362,7 @@ create_vbef_features <- function(me_vbef_input,me_ts_var_features)
   for (i in 1:ncol(me_ts_input_data)) {
     date  <- strptime(me_ts_input_data[,i], "%d%B%y:%H:%M:%S")
     day   <- as.numeric(format(date, "%d"))
-    month <- format(date, "%b")
+    month <- as.numeric(format(date, "%m"))
     hour  <- as.numeric(format(date, "%H"))
     i_me_ts_output_data <- cbind(day,month,hour)
     colnames(i_me_ts_output_data) <- paste0(names(me_ts_input_data)[i],c("day","month","hour"))
@@ -366,10 +372,10 @@ create_vbef_features <- function(me_vbef_input,me_ts_var_features)
   # Create ZipCode based aggregated feature
   library(stringr)
   VAR_0241_ZC  <- paste0("ZC",str_sub(str_pad(me_vbef_input[["VAR_0241"]] ,5,pad = "0"),0,2))
-  VAR_0493_GEN5 <- str_sub(me_vbef_input[["VAR_0493"]],1,5)
+  # VAR_0493_GEN5 <- str_sub(me_vbef_input[["VAR_0493"]],1,5)
   
   # Replace source null values with NA
-  me_vbef_output <- data.frame(me_ts_output_data,VAR_0241_ZC,VAR_0493_GEN5)
+  me_vbef_output <- data.frame(me_ts_output_data,VAR_0241_ZC)
  
   return(me_vbef_output)
 }
@@ -386,6 +392,7 @@ create_lbef_features <- function(me_lbef_input,input_target_data,me_disc_feature
   me_discr_output_data <- NULL
   me_discr_break       <- list()
   for(i in 1:length(me_disc_features)) {
+    create_log_entry("",paste0(me_disc_features[i] ," Feature Discretization started"),"F")
     discr_model <- mdlp(cbind(me_lbef_input[[me_disc_features[i]]] ,input_target_data))
     breaks <- c(min(me_lbef_input[[me_disc_features[i]]]),discr_model$cutp[[1]],max(me_lbef_input[[me_disc_features[i]]]))
     i_me_discr_output_data <- cut(me_lbef_input[[me_disc_features[i]]], breaks = breaks, include.lowest = TRUE)
