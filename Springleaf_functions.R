@@ -45,7 +45,8 @@ perform_data_preparation <- function()
   me_input_data3             <- data.frame(me_input_data2[,!(names(me_input_data2) %in% me_fill_NAs_features)],me_fill_NAs_features_data)
   
   # CREATE NEW LEARNING-BASED FEATURES
-  me_disc_features             <- c("VAR_1398", "VAR_1747","VAR_1859","VAR_1322")
+  me_disc_features             <- c("VAR_1398", "VAR_1747","VAR_1859","VAR_1322","VAR_1147","VAR_0587",
+                                    "VAR_0298","VAR_0573","VAR_1842")
   me_lbef_features_data        <- create_lbef_features(me_input_data3[,me_disc_features],
                                                 me_input_target_data,
                                                 me_disc_features)
@@ -216,6 +217,8 @@ create_model_assessment_data <- function (me_input_data,ma_run_id)
 
   end_time <- proc.time() ; runtime <- round(as.numeric((end_time - start_time)[3]),2)
   
+  opt_parameters         <- classification_model$bestTune
+  
   create_log_entry("",paste0(ma_run_id , " Model Assesment finished : " , runtime),"SF")
 
   # Output feature importance based on modelling data
@@ -225,27 +228,35 @@ create_model_assessment_data <- function (me_input_data,ma_run_id)
   create_log_entry("",paste0(ma_run_id , " Feature Importance : "),"F")
   create_log_entry(names(importance_data),head(importance_data,200),"F")
 
+  setwd(SYSG_OUTPUT_MODELING_DIR)
   save(classification_model, file = paste0(ma_run_id,".rda"))
+  save(opt_parameters, file = paste0("OM_",ma_run_id,".rda"))
   
   # Create predictions based on evaluation data
   create_pe_prediction_data(classification_model, e_input_data , ma_run_id)
+ 
+}
+
+# Create final model using optimal parameters tuned by caret + non-tunable parameters after manual evaluation
+# Use all train data set
+create_p_model <- function (opt_model_id , opt_parameters, me_input_data)
+{
+  classification_formula <- as.formula(paste("target" ,"~",
+                                             paste(names(me_input_data)[!names(me_input_data)=='target'],collapse="+")))
   
-  # Create final model using optimal parameters tuned by caret + non-tunable parameters after manual evaluation
-  # Use all train data set
   m_control <- trainControl(method          = "none",
                             classProbs      = T,
                             summaryFunction = twoClassSummary,
                             allowParallel   = TRUE , 
                             verboseIter     = TRUE)
-  
-  opt_parameters <- classification_model$bestTune
+
   create_log_entry("",paste0(ma_run_id ," Optimal Model Creation started : "),"SF")
-  create_log_entry(names(opt_parameters),classification_model$bestTune,"F")
+  create_log_entry(names(opt_parameters), opt_parameters ,"F")
   
   start_time <- proc.time()
   
   opt_xgbc <- train(classification_formula , data = me_input_data , 
-                    method = "xgbTree", trControl = m_control , tuneGrid = classification_model$bestTune , 
+                    method = "xgbTree", trControl = m_control , tuneGrid = opt_parameters , 
                     objective           = 'binary:logistic',
                     min_child_weight    = 5,
                     subsample           = 0.6,
@@ -256,9 +267,11 @@ create_model_assessment_data <- function (me_input_data,ma_run_id)
   
   end_time <- proc.time() ; runtime <- round(as.numeric((end_time - start_time)[3]),2)
   
-  create_log_entry("",paste0(ma_run_id , " Optimal Model Creation finished : " , runtime),"SF")
   
-  return(opt_classification_model)
+  save(opt_classification_model, file = paste0(opt_model_id,".rda"))
+  
+  create_log_entry("",paste0(ma_run_id , " Optimal Model Creation finished : " , runtime),"SF")
+ 
 }
 
 # Function predicts model on evaluation data and output AUC to log
@@ -382,6 +395,12 @@ create_vbef_features <- function(me_vbef_input,me_ts_var_features)
 
 create_lbef_features <- function(me_lbef_input,input_target_data,me_disc_features)
 {
+  SYS_LBEF_DATA_FRACTION <- 0.2
+  set.seed(1234)
+  
+  me_lbef_sample_indexes     <- createDataPartition(input_target_data , p = SYS_LBEF_DATA_FRACTION , list = FALSE)
+  me_lbef_m                  <- me_lbef_input[me_lbef_sample_indexes,]
+  
   me_lbef_output    <- NULL
   
   # Create Discretizated features
@@ -393,9 +412,9 @@ create_lbef_features <- function(me_lbef_input,input_target_data,me_disc_feature
   me_discr_break       <- list()
   for(i in 1:length(me_disc_features)) {
     create_log_entry("",paste0(me_disc_features[i] ," Feature Discretization started"),"F")
-    discr_model <- mdlp(cbind(me_lbef_input[[me_disc_features[i]]] ,input_target_data))
+    discr_model <- mdlp(cbind(me_lbef_m[[me_disc_features[i]]] ,input_target_data))
     breaks <- c(min(me_lbef_input[[me_disc_features[i]]]),discr_model$cutp[[1]],max(me_lbef_input[[me_disc_features[i]]]))
-    i_me_discr_output_data <- cut(me_lbef_input[[me_disc_features[i]]], breaks = breaks, include.lowest = TRUE)
+    i_me_discr_output_data <- cut(me_lbef_m[[me_disc_features[i]]], breaks = breaks, include.lowest = TRUE)
     me_discr_break[[me_disc_features[i]]] <- breaks
     me_discr_output_data <- cbind(me_discr_output_data,paste0("RNG",as.numeric(i_me_discr_output_data)))
   }
@@ -403,13 +422,15 @@ create_lbef_features <- function(me_lbef_input,input_target_data,me_disc_feature
   names(me_discr_output_data) <- paste0(me_disc_features,"_D")
   
   create_log_entry(""," Feature Discretization Finished","F")
- 
+  
   me_lbef_output <- data.frame(me_discr_output_data)
   
   setwd(SYSG_OUTPUT_MODELING_DIR)
   save(me_discr_break, file = paste0("me_discr_break.rda"))
   
- return(me_lbef_output)
+  me_lbef_output <- process_lbef_features(me_lbef_input,me_disc_features)
+  
+  return(me_lbef_output)
 }
 
 process_lbef_features <- function(p_input_data,me_disc_features)

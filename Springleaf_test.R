@@ -36,6 +36,17 @@ for(i in 1:length(me_disc_features)) {
    
 create_log_entry(""," Feature Discretization Finished","F")
 
+library(doMC)
+closeAllConnections()
+registerDoMC(cores=2)
+
+d <- function(N, sigma) {
+  
+}
+foreach(n = 1:5) %dopar% max.eig(n, 1)
+
+
+
    # Apply discretization on prediction data
 p_input_data <- p_input_data3
 p_features_to_discr <- c("VAR_0571","VAR_1398")
