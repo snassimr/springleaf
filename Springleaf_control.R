@@ -14,12 +14,16 @@ library(stringr)
 
 create_log_entry("", "Starting run ....................................","SF")
 
+if (!SYS_RUN_MODE %in% c("DP","ME","P"))
+  stop ("Illegal SYS_RUN_MODE :" , SYS_RUN_MODE)
+
 ############################################ DATA PREPARATION ############################################
 # Run to prepare data and save data locally
 if (SYS_RUN_MODE == "DP") {
-   create_log_entry("", "Starting prepare data","SF")
+   create_log_entry("", "Prepare data started","SF")
    perform_data_preparation()
    gc(T,T)
+   create_log_entry("", "Prepare data finished","SF")
    stop ("Data preparation finished ... ")
 }
 
@@ -54,6 +58,8 @@ me_data_sample <- me_data[m_sample_indexes,]
 
 setwd(SYSG_OUTPUT_MODELING_DIR)
 me_classification_model <- create_model_assessment_data(me_data_sample,ma_model_id)
+
+closeAllConnections()
 }
 
 ############################################ PREDICTION #####################################################
@@ -92,8 +98,8 @@ if (SYS_RUN_MODE == "P") {
 }
 
 create_log_entry("","Finished run ....................................","SF")
-if (SYS_RUN_MODE %in% c("DP","ME","P"))
-  stop ("Illegal SYS_RUN_MODE :" , SYS_RUN_MODE)
+
+
 
 
 

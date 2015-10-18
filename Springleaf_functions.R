@@ -29,7 +29,7 @@ perform_data_preparation <- function()
   
   # CREATE NEW VALUE-BASED FEATURES 
   me_ts_var_features    <- as.character(subset(uv_data_report1 , FEATURE_TYPE == "timestamp" , select = FEATURE_NAME)$FEATURE_NAME)
-  me_vbef_features      <- c(me_ts_var_features,"VAR_0241")
+  me_vbef_features      <- c(me_ts_var_features,"VAR_0241","VAR_0493")
   me_vbef_features_data <- create_vbef_features(me_input_data1[,me_vbef_features], me_ts_var_features)
   
   # REPLACE TIME SERIES and ZIP BASED FEATURES
@@ -47,10 +47,14 @@ perform_data_preparation <- function()
   # CREATE NEW LEARNING-BASED FEATURES
   me_disc_features             <- c("VAR_1398", "VAR_1747","VAR_1859","VAR_1322","VAR_1147","VAR_0587",
                                     "VAR_0298","VAR_0573","VAR_1842")
+  me_disc_features             <- c("VAR_1398", "VAR_1747")
   me_lbef_features_data        <- create_lbef_features(me_input_data3[,me_disc_features],
                                                 me_input_target_data,
                                                 me_disc_features)
+  # Drop "All" discretized if exist
+  me_disc_features <- str_replace(names(me_lbef_features_data),"_D","")
   # ADD DISCRETIZATION FEATURES
+  if (!is.null(me_lbef_features_data))
   me_input_data3             <- data.frame(me_input_data3,me_lbef_features_data)
   
   me_data_exploration_report <- create_data_exploration_report(me_input_data3,iteration = 3,output_mode = 'CSV' )
@@ -64,7 +68,7 @@ perform_data_preparation <- function()
   # Combine features to remove
   me_features_remove   <- c(me_low_var_features,me_high_var_features,me_high_NAs_features,me_disc_features)
   # Add features back
-  me_features_add_exc  <- c("VAR_0241_ZC")
+  me_features_add_exc  <- c("VAR_0241_ZC","VAR_0493_GEN5")
   me_features_select   <- names(me_input_data3)[!(names(me_input_data3) %in% me_features_remove)]
   me_input_data4       <- me_input_data3[,c(me_features_select,me_features_add_exc)]
   
@@ -85,8 +89,12 @@ perform_data_preparation <- function()
   p_fill_NAs_features_data  <- process_p_missing_data(p_input_data1[,me_fill_NAs_features],me_fill_NAs_features)
   p_input_data2             <- data.frame(p_input_data1[,!(names(p_input_data1) %in% me_fill_NAs_features)],p_fill_NAs_features_data)
   
+  if(!is.null(me_disc_features)) {
   p_lbef_features_data      <- process_lbef_features(p_input_data2[,me_disc_features],me_disc_features)
   p_input_data3             <- data.frame(p_input_data2,p_lbef_features_data)
+  } else {
+    p_input_data3           <- data.frame(p_input_data2)  
+  }
   
   p_input_data3             <- p_input_data3[,c("ID",me_input_features)]
   
@@ -244,13 +252,18 @@ create_p_model <- function (opt_model_id , opt_parameters, me_input_data)
   classification_formula <- as.formula(paste("target" ,"~",
                                              paste(names(me_input_data)[!names(me_input_data)=='target'],collapse="+")))
   
+  set.seed(1056)
+  p_seeds <- vector(mode = "list", length = 1)
+  p_seeds[[1]] <- sample.int(1000, 1)
+  
   m_control <- trainControl(method          = "none",
                             classProbs      = T,
                             summaryFunction = twoClassSummary,
+                            seeds           = p_seeds,
                             allowParallel   = TRUE , 
                             verboseIter     = TRUE)
 
-  create_log_entry("",paste0(ma_run_id ," Optimal Model Creation started : "),"SF")
+  create_log_entry("",paste0(opt_model_id ," Optimal Model Creation started : "),"SF")
   create_log_entry(names(opt_parameters), opt_parameters ,"F")
   
   start_time <- proc.time()
@@ -260,7 +273,7 @@ create_p_model <- function (opt_model_id , opt_parameters, me_input_data)
                     objective           = 'binary:logistic',
                     min_child_weight    = 5,
                     subsample           = 0.6,
-                    nthread             = 4
+                    nthread             = 8
                     )
   
   opt_classification_model <- opt_xgbc
@@ -270,7 +283,7 @@ create_p_model <- function (opt_model_id , opt_parameters, me_input_data)
   
   save(opt_classification_model, file = paste0(opt_model_id,".rda"))
   
-  create_log_entry("",paste0(ma_run_id , " Optimal Model Creation finished : " , runtime),"SF")
+  create_log_entry("",paste0(opt_model_id , " Optimal Model Creation finished : " , runtime),"SF")
  
 }
 
@@ -385,17 +398,17 @@ create_vbef_features <- function(me_vbef_input,me_ts_var_features)
   # Create ZipCode based aggregated feature
   library(stringr)
   VAR_0241_ZC  <- paste0("ZC",str_sub(str_pad(me_vbef_input[["VAR_0241"]] ,5,pad = "0"),0,2))
-  # VAR_0493_GEN5 <- str_sub(me_vbef_input[["VAR_0493"]],1,5)
+  VAR_0493_GEN5 <- str_sub(me_vbef_input[["VAR_0493"]],1,5)
   
   # Replace source null values with NA
-  me_vbef_output <- data.frame(me_ts_output_data,VAR_0241_ZC)
+  me_vbef_output <- data.frame(me_ts_output_data,VAR_0241_ZC,VAR_0493_GEN5)
  
   return(me_vbef_output)
 }
 
 create_lbef_features <- function(me_lbef_input,input_target_data,me_disc_features)
 {
-  SYS_LBEF_DATA_FRACTION <- 0.2
+  SYS_LBEF_DATA_FRACTION <- 1
   set.seed(1234)
   
   me_lbef_sample_indexes     <- createDataPartition(input_target_data , p = SYS_LBEF_DATA_FRACTION , list = FALSE)
@@ -408,59 +421,73 @@ create_lbef_features <- function(me_lbef_input,input_target_data,me_disc_feature
   setwd(SYSG_SYSTEM_DIR)
   create_log_entry(""," Feature Discretization started","F")
   
-  me_discr_output_data <- NULL
-  me_discr_break       <- list()
-  for(i in 1:length(me_disc_features)) {
-    create_log_entry("",paste0(me_disc_features[i] ," Feature Discretization started"),"F")
+  library(doMC)
+  closeAllConnections()
+  registerDoMC(cores=8)
+  
+  me_discr_break <- foreach(i = 1:length(me_disc_features) , .combine = list) %dopar% {
+    
+    create_log_entry("",paste0(me_disc_features[i] ," Feature Discretization started"),"F") 
+    
     discr_model <- mdlp(cbind(me_lbef_m[[me_disc_features[i]]] ,input_target_data))
-    breaks <- c(min(me_lbef_input[[me_disc_features[i]]]),discr_model$cutp[[1]],max(me_lbef_input[[me_disc_features[i]]]))
-    i_me_discr_output_data <- cut(me_lbef_m[[me_disc_features[i]]], breaks = breaks, include.lowest = TRUE)
-    me_discr_break[[me_disc_features[i]]] <- breaks
-    me_discr_output_data <- cbind(me_discr_output_data,paste0("RNG",as.numeric(i_me_discr_output_data)))
+    discr_model_breaks <- discr_model$cutp[[1]]
+    if (discr_model_breaks != "All")
+      discr_model_breaks <- 
+      c(min(me_lbef_input[[me_disc_features[i]]]),discr_model_breaks,max(me_lbef_input[[me_disc_features[i]]]))
+    
+    create_log_entry("",paste0(me_disc_features[i] ," Feature Discretization finished"),"F")
+    discr_model_breaks
   }
-  me_discr_output_data <- data.frame(me_discr_output_data)
-  names(me_discr_output_data) <- paste0(me_disc_features,"_D")
-  
-  create_log_entry(""," Feature Discretization Finished","F")
-  
-  me_lbef_output <- data.frame(me_discr_output_data)
-  
+  names(me_discr_break) <- me_disc_features
+    
   setwd(SYSG_OUTPUT_MODELING_DIR)
   save(me_discr_break, file = paste0("me_discr_break.rda"))
   
   me_lbef_output <- process_lbef_features(me_lbef_input,me_disc_features)
   
+  create_log_entry(""," Feature Discretization Finished","F")
+  
+  closeAllConnections()
+  
   return(me_lbef_output)
 }
 
-process_lbef_features <- function(p_input_data,me_disc_features)
+process_lbef_features <- function(discr_input_data,disc_features)
 {
-  me_lbef_output    <- NULL
-  
   # Create Discretizated features
   library(discretization)
   setwd(SYSG_SYSTEM_DIR)
-  create_log_entry(""," Feature Discretization started","F")
+  create_log_entry(""," Feature Discretization Processing started","F")
   
   if (exists("me_discr_break"))              
     rm(me_discr_break)
   setwd(SYSG_OUTPUT_MODELING_DIR)
-  me_discr_break           <- get(load("me_discr_break.rda"))
+  discr_break           <- get(load("me_discr_break.rda"))
   
-  p_discr_output_data <- NULL
+  discr_output_data <- NULL
+  new_disc_features <- disc_features
   
-  for(i in 1:length(me_disc_features)) {
-    breaks <- sort(me_discr_break[[me_disc_features[i]]])
-    i_p_discr_output_data <- findInterval(p_input_data[,me_disc_features[i]], breaks)
-    p_discr_output_data <- cbind(p_discr_output_data,paste0("RNG",as.numeric(i_p_discr_output_data)))
+  for(i in 1:length(disc_features)) {
+    breaks <- discr_break[[disc_features[i]]]
+    # All value
+    if (length(breaks) == 1) {
+      new_disc_features <- new_disc_features[new_disc_features!=disc_features[i]]
+      next
+    }
+    # Feature with no breaks is reduced
+    breaks <- sort(breaks)
+    i_p_discr_output_data <- findInterval(discr_input_data[,disc_features[i]], breaks)
+    discr_output_data <- cbind(discr_output_data,paste0("RNG",as.numeric(i_p_discr_output_data)))
   }
   
-  p_discr_output_data <- data.frame(p_discr_output_data)
-  names(p_discr_output_data) <- paste0(me_disc_features,"_D")
+  if(!is.null(discr_output_data)) {
+  discr_output_data <- data.frame(discr_output_data)
+  names(discr_output_data) <- paste0(new_disc_features,"_D")
+  }
   
-  create_log_entry(""," Feature Discretization Finished","F")
+  create_log_entry(""," Feature Discretization Processing Finished","F")
   
-  return(p_discr_output_data)
+  return(discr_output_data)
 }
 
 create_log_entry <- function(message_title = "", message , log_mode)

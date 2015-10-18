@@ -40,10 +40,16 @@ library(doMC)
 closeAllConnections()
 registerDoMC(cores=2)
 
-d <- function(N, sigma) {
-  
+me_disc_features <- c("VAR_0648")
+
+library(discretization)
+d <- function(feature , data) {
+  discr_model <- mdlp(cbind(data[feature] ,data$target))
+  breaks <- c(min(data[feature]),discr_model$cutp[[1]],max(data[feature]))
 }
-foreach(n = 1:5) %dopar% max.eig(n, 1)
+
+
+foreach(n = 1:1 , .combine = list) %dopar% d(me_disc_features[n], me_data)
 
 
 
@@ -132,6 +138,13 @@ importance_data[str_detect(importance_data$Var, "VAR_1748"),]
 # "VAR_1750", "VAR_0909", "VAR_0304","VAR_1748"
 #  0.002530912 , 0.002497614 , 0.002424872 , 0.003879594 
 
+############################ Check predictions equvalence
+library(readr)
+SYSG_SYSTEM_DIR            <- "/home/rstudio/springleafpj/"
+setwd(SYSG_SYSTEM_DIR)
+f1  <- read_csv("submission_MODEL_#1234#1#XGBC#2015-10-18 10:12:46.csv")
+f2  <- read_csv("submission_MODEL_#1234#1#XGBC#2015-10-18 11:25:44.csv")
+all.equal(f1,f2)
 
 ############################ Load final data sets
 
