@@ -1630,3 +1630,285 @@ eta
 2015-10-18 12:28:29 : Finished prediction on data
 
 2015-10-18 12:28:29 : Finished run ....................................
+
+2015-10-18 13:47:42 : Starting run ....................................
+
+2015-10-18 13:47:42 : Prepare data started
+
+2015-10-18 13:49:38 :  Feature Discretization started
+
+2015-10-18 13:49:38 : VAR_1398 Feature Discretization started
+
+2015-10-18 13:49:38 : VAR_1747 Feature Discretization started
+
+2015-10-18 13:49:38 : VAR_1859 Feature Discretization started
+
+2015-10-18 13:49:38 : VAR_1322 Feature Discretization started
+
+2015-10-18 13:49:38 : VAR_1147 Feature Discretization started
+
+2015-10-18 13:49:39 : VAR_0587 Feature Discretization started
+
+2015-10-18 13:49:39 : VAR_0298 Feature Discretization started
+
+2015-10-18 13:49:39 : VAR_0573 Feature Discretization started
+
+2015-10-18 13:50:13 : VAR_0573 Feature Discretization finished
+
+2015-10-18 13:50:42 : VAR_0587 Feature Discretization finished
+
+2015-10-18 13:51:45 : VAR_1147 Feature Discretization finished
+
+2015-10-18 14:11:34 : VAR_1859 Feature Discretization finished
+
+2015-10-18 14:12:13 : VAR_1398 Feature Discretization finished
+
+2015-10-18 14:12:13 : VAR_1842 Feature Discretization started
+
+2015-10-18 14:13:40 : VAR_1842 Feature Discretization finished
+
+2015-10-18 14:21:31 : VAR_1322 Feature Discretization finished
+
+2015-10-18 14:32:59 : VAR_1747 Feature Discretization finished
+
+2015-10-18 15:37:15 : VAR_0298 Feature Discretization finished
+
+2015-10-18 15:57:54 :  Feature Discretization started
+
+2015-10-18 15:58:04 : VAR_1398 Feature Discretization started
+
+2015-10-18 15:58:04 : VAR_1322 Feature Discretization started
+
+2015-10-18 15:58:04 : VAR_1747 Feature Discretization started
+
+2015-10-18 15:58:04 : VAR_1859 Feature Discretization started
+
+2015-10-18 15:58:23 : VAR_1398 Feature Discretization started
+
+2015-10-18 15:58:23 : VAR_1747 Feature Discretization started
+
+2015-10-18 15:58:23 : VAR_1859 Feature Discretization started
+
+2015-10-18 16:15:20 : VAR_1859 Feature Discretization finished
+
+2015-10-18 16:16:45 : VAR_1398 Feature Discretization finished
+
+2015-10-18 16:16:45 : VAR_1322 Feature Discretization started
+
+2015-10-18 16:35:22 : VAR_1747 Feature Discretization finished
+
+2015-10-18 16:44:06 : VAR_1322 Feature Discretization finished
+
+2015-10-18 17:08:27 : Starting run ....................................
+
+2015-10-18 17:08:27 : Prepare data started
+
+2015-10-18 17:10:25 :  Feature Discretization started
+
+2015-10-18 17:10:25 : VAR_1398 Feature Discretization started
+
+2015-10-18 17:10:25 : VAR_1747 Feature Discretization started
+
+2015-10-18 17:10:25 : VAR_1859 Feature Discretization started
+
+2015-10-18 17:10:25 : VAR_1322 Feature Discretization started
+
+2015-10-18 17:10:25 : VAR_1147 Feature Discretization started
+
+2015-10-18 17:10:25 : VAR_0587 Feature Discretization started
+
+2015-10-18 17:10:25 : VAR_0573 Feature Discretization started
+
+2015-10-18 17:10:25 : VAR_1842 Feature Discretization started
+
+2015-10-18 17:10:59 : VAR_0573 Feature Discretization finished
+
+2015-10-18 17:11:33 : VAR_0587 Feature Discretization finished
+
+2015-10-18 17:11:42 : VAR_1842 Feature Discretization finished
+
+2015-10-18 17:12:16 : VAR_1147 Feature Discretization finished
+
+2015-10-18 17:29:20 : VAR_1398 Feature Discretization finished
+
+2015-10-18 17:40:53 : VAR_1859 Feature Discretization finished
+
+2015-10-18 17:48:04 : VAR_1747 Feature Discretization finished
+
+2015-10-18 17:51:19 : VAR_1322 Feature Discretization finished
+
+2015-10-18 17:51:19 :  Feature Discretization Processing started
+
+2015-10-18 17:51:21 :  Feature Discretization Processing Finished
+
+2015-10-18 17:51:21 :  Feature Discretization Finished
+
+2015-10-18 17:51:44 :  Feature Discretization Processing started
+
+2015-10-18 17:51:46 :  Feature Discretization Processing Finished
+
+2015-10-18 17:53:57 : Prepare data finished
+
+2015-10-18 17:58:23 : Starting run ....................................
+
+2015-10-18 17:58:23 : Starting prediction on data
+
+2015-10-18 17:58:32 : MODEL_#1234#1#XGBC#2015-10-18 17:58:23 Optimal Model Creation started : 
+nrounds
+max_depth
+eta
+2015-10-18 17:58:32 : 500
+2015-10-18 17:58:32 : 10
+2015-10-18 17:58:32 : 0.02
+
+2015-10-18 18:58:20 : MODEL_#1234#1#XGBC#2015-10-18 17:58:23 Optimal Model Creation finished : 3322.45
+
+2015-10-18 19:00:47 : Finished prediction on data
+
+2015-10-18 19:00:48 : Finished run ....................................
+
+2015-10-18 19:42:09 : Starting run ....................................
+
+2015-10-18 19:42:09 : Starting prediction on data
+
+2015-10-18 19:42:19 : MODEL_#1234#1#XGBC#2015-10-18 19:42:09 Optimal Model Creation started : 
+nrounds
+max_depth
+eta
+2015-10-18 19:42:19 : 500
+2015-10-18 19:42:19 : 10
+2015-10-18 19:42:19 : 0.02
+
+2015-10-18 20:41:47 : MODEL_#1234#1#XGBC#2015-10-18 19:42:09 Optimal Model Creation finished : 3305.03
+
+2015-10-18 20:44:15 : Finished prediction on data
+
+2015-10-18 20:44:15 : Finished run ....................................
+
+2015-10-18 20:54:05 : Starting run ....................................
+
+2015-10-18 20:54:05 : Starting prediction on data
+
+2015-10-18 20:54:15 : MODEL_#1234#1#XGBC#2015-10-18 20:54:05 Optimal Model Creation started : 
+nrounds
+max_depth
+eta
+2015-10-18 20:54:15 : 500
+2015-10-18 20:54:15 : 10
+2015-10-18 20:54:15 : 0.02
+
+2015-10-18 21:43:15 : MODEL_#1234#1#XGBC#2015-10-18 20:54:05 Optimal Model Creation finished : 2677.06
+
+2015-10-18 21:45:42 : Finished prediction on data
+
+2015-10-18 21:45:42 : Finished run ....................................
+
+2015-10-18 21:51:43 : Starting run ....................................
+
+2015-10-18 21:51:43 : Starting prediction on data
+
+2015-10-18 21:51:53 : MODEL_#1234#1#XGBC#2015-10-18 21:51:43 Optimal Model Creation started : 
+nrounds
+max_depth
+eta
+2015-10-18 21:51:53 : 500
+2015-10-18 21:51:53 : 10
+2015-10-18 21:51:53 : 0.02
+
+2015-10-18 22:49:36 : MODEL_#1234#1#XGBC#2015-10-18 21:51:43 Optimal Model Creation finished : 3198.88
+
+2015-10-18 22:52:04 : Finished prediction on data
+
+2015-10-18 22:52:04 : Finished run ....................................
+
+2015-10-18 22:59:18 : Starting run ....................................
+
+2015-10-18 22:59:18 : Prepare data started
+
+2015-10-18 23:17:19 : Starting run ....................................
+
+2015-10-18 23:17:19 : Prepare data started
+
+2015-10-18 23:48:09 : Starting run ....................................
+
+2015-10-18 23:48:09 : Prepare data started
+
+2015-10-18 23:50:06 :  Feature Discretization started
+
+2015-10-18 23:50:07 : VAR_1747 Feature Discretization started
+
+2015-10-18 23:50:07 : VAR_0541 Feature Discretization started
+
+2015-10-18 23:50:07 : VAR_0648 Feature Discretization started
+
+2015-10-18 23:50:07 : VAR_1228 Feature Discretization started
+
+2015-10-18 23:50:07 : VAR_0891 Feature Discretization started
+
+2015-10-18 23:50:07 : VAR_0896 Feature Discretization started
+
+2015-10-18 23:50:07 : VAR_1202 Feature Discretization started
+
+2015-10-18 23:50:07 : VAR_1581 Feature Discretization started
+
+2015-10-19 00:45:31 : VAR_1228 Feature Discretization finished
+
+2015-10-19 00:45:31 : VAR_1715 Feature Discretization started
+
+2015-10-19 00:46:44 : VAR_0896 Feature Discretization finished
+
+2015-10-19 00:49:03 : VAR_1581 Feature Discretization finished
+
+2015-10-19 00:55:06 : VAR_1747 Feature Discretization finished
+
+2015-10-19 00:55:06 : VAR_1685 Feature Discretization started
+
+2015-10-19 00:55:46 : VAR_0891 Feature Discretization finished
+
+2015-10-19 01:08:47 : VAR_1715 Feature Discretization finished
+
+2015-10-19 01:16:06 : VAR_1202 Feature Discretization finished
+
+2015-10-19 01:50:21 : VAR_1685 Feature Discretization finished
+
+2015-10-19 01:56:06 : VAR_0541 Feature Discretization finished
+
+2015-10-19 01:56:06 : VAR_1914 Feature Discretization started
+
+2015-10-19 02:12:26 : VAR_1914 Feature Discretization finished
+
+2015-10-19 02:21:46 : VAR_0648 Feature Discretization finished
+
+2015-10-19 02:21:46 : VAR_0241 Feature Discretization started
+
+2015-10-19 03:54:26 : VAR_0241 Feature Discretization finished
+
+2015-10-19 03:54:26 :  Feature Discretization Processing started
+
+2015-10-19 03:54:29 :  Feature Discretization Processing Finished
+
+2015-10-19 03:54:29 :  Feature Discretization Finished
+
+2015-10-19 03:54:53 :  Feature Discretization Processing started
+
+2015-10-19 03:54:55 :  Feature Discretization Processing Finished
+
+2015-10-19 03:57:07 : Prepare data finished
+
+2015-10-19 05:20:46 : Starting run ....................................
+
+2015-10-19 05:20:46 : Starting prediction on data
+
+2015-10-19 05:20:57 : MODEL_#1234#1#XGBC#2015-10-19 05:20:46 Optimal Model Creation started : 
+nrounds
+max_depth
+eta
+2015-10-19 05:20:57 : 500
+2015-10-19 05:20:57 : 10
+2015-10-19 05:20:57 : 0.02
+
+2015-10-19 06:20:49 : MODEL_#1234#1#XGBC#2015-10-19 05:20:46 Optimal Model Creation finished : 3329.47
+
+2015-10-19 06:23:14 : Finished prediction on data
+
+2015-10-19 06:23:14 : Finished run ....................................

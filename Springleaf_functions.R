@@ -29,7 +29,7 @@ perform_data_preparation <- function()
   
   # CREATE NEW VALUE-BASED FEATURES 
   me_ts_var_features    <- as.character(subset(uv_data_report1 , FEATURE_TYPE == "timestamp" , select = FEATURE_NAME)$FEATURE_NAME)
-  me_vbef_features      <- c(me_ts_var_features,"VAR_0241","VAR_0493")
+  me_vbef_features      <- c(me_ts_var_features,"VAR_0493")
   me_vbef_features_data <- create_vbef_features(me_input_data1[,me_vbef_features], me_ts_var_features)
   
   # REPLACE TIME SERIES and ZIP BASED FEATURES
@@ -45,9 +45,10 @@ perform_data_preparation <- function()
   me_input_data3             <- data.frame(me_input_data2[,!(names(me_input_data2) %in% me_fill_NAs_features)],me_fill_NAs_features_data)
   
   # CREATE NEW LEARNING-BASED FEATURES
-  me_disc_features             <- c("VAR_1398", "VAR_1747","VAR_1859","VAR_1322","VAR_1147","VAR_0587",
-                                    "VAR_0298","VAR_0573","VAR_1842")
-  me_disc_features             <- c("VAR_1398", "VAR_1747")
+  me_disc_features             <- c("VAR_1747", "VAR_0541","VAR_0648","VAR_1228", "VAR_0891", 
+                                    "VAR_0896","VAR_1202","VAR_1581","VAR_1685", "VAR_1914",
+                                    "VAR_0241","VAR_1715")
+  # me_disc_features             <- c("VAR_1398", "VAR_1747")
   me_lbef_features_data        <- create_lbef_features(me_input_data3[,me_disc_features],
                                                 me_input_target_data,
                                                 me_disc_features)
@@ -68,7 +69,7 @@ perform_data_preparation <- function()
   # Combine features to remove
   me_features_remove   <- c(me_low_var_features,me_high_var_features,me_high_NAs_features,me_disc_features)
   # Add features back
-  me_features_add_exc  <- c("VAR_0241_ZC","VAR_0493_GEN5")
+  me_features_add_exc  <- c("VAR_0493_GEN5")
   me_features_select   <- names(me_input_data3)[!(names(me_input_data3) %in% me_features_remove)]
   me_input_data4       <- me_input_data3[,c(me_features_select,me_features_add_exc)]
   
@@ -397,11 +398,11 @@ create_vbef_features <- function(me_vbef_input,me_ts_var_features)
   
   # Create ZipCode based aggregated feature
   library(stringr)
-  VAR_0241_ZC  <- paste0("ZC",str_sub(str_pad(me_vbef_input[["VAR_0241"]] ,5,pad = "0"),0,2))
+  # VAR_0241_ZC  <- paste0("ZC",str_sub(str_pad(me_vbef_input[["VAR_0241"]] ,5,pad = "0"),0,2))
   VAR_0493_GEN5 <- str_sub(me_vbef_input[["VAR_0493"]],1,5)
   
   # Replace source null values with NA
-  me_vbef_output <- data.frame(me_ts_output_data,VAR_0241_ZC,VAR_0493_GEN5)
+  me_vbef_output <- data.frame(me_ts_output_data,VAR_0493_GEN5)
  
   return(me_vbef_output)
 }
@@ -438,6 +439,7 @@ create_lbef_features <- function(me_lbef_input,input_target_data,me_disc_feature
     create_log_entry("",paste0(me_disc_features[i] ," Feature Discretization finished"),"F")
     discr_model_breaks
   }
+  me_discr_break <- lapply(unlist(renquote(me_discr_break)), eval)
   names(me_discr_break) <- me_disc_features
     
   setwd(SYSG_OUTPUT_MODELING_DIR)
@@ -510,4 +512,7 @@ create_log_entry <- function(message_title = "", message , log_mode)
   setwd(current_library)
   
 }  
-  
+
+renquote <- function(l) if (is.list(l)) lapply(l, renquote) else enquote(l)
+
+

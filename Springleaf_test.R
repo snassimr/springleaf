@@ -38,7 +38,7 @@ create_log_entry(""," Feature Discretization Finished","F")
 
 library(doMC)
 closeAllConnections()
-registerDoMC(cores=2)
+registerDoMC(cores=3)
 
 me_disc_features <- c("VAR_0648")
 
@@ -142,8 +142,8 @@ importance_data[str_detect(importance_data$Var, "VAR_1748"),]
 library(readr)
 SYSG_SYSTEM_DIR            <- "/home/rstudio/springleafpj/"
 setwd(SYSG_SYSTEM_DIR)
-f1  <- read_csv("submission_MODEL_#1234#1#XGBC#2015-10-18 10:12:46.csv")
-f2  <- read_csv("submission_MODEL_#1234#1#XGBC#2015-10-18 11:25:44.csv")
+f1  <- read_csv("submission_MODEL_#1234#1#XGBC#2015-10-18 17:58:23.csv")
+f2  <- read_csv("submission_MODEL_#1234#1#XGBC#2015-10-18 19:42:09.csv")
 all.equal(f1,f2)
 
 ############################ Load final data sets
